@@ -14,7 +14,9 @@ import xml.etree.ElementTree as et
 import cv2
 import matplotlib.pyplot as plt
 
-def plot(idx):
+debug = False
+
+def plot(idx,data, labels):
     classes = ["without_mask","with_mask"] #defining classes
     plt.title(classes[labels[idx]])
     plt.imshow(data[idx])
@@ -56,7 +58,7 @@ def get_images(df):
     labels = []
     data = []
     
-    print("Extracting each data into respective label folders....") 
+    print("Loading dataset....") 
     for idx,image in enumerate(image_directories):
             
         img  = cv2.imread(image)
@@ -84,9 +86,11 @@ def get_images(df):
             except:
                 print("There was an unhandled exeption")
                 pass
+    print("Dataset loaded!")
     return data, labels
 
-df = get_main_person_info()
-data, labels =get_images(df)
+if(debug):
+    df = get_main_person_info()
+    data, labels =get_images(df)
 
 
