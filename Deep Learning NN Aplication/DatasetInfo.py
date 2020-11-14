@@ -2,106 +2,91 @@
 """
 Created on Fri Nov 13 21:02:01 2020
 
-@author: Eleanor
+@authors: Greg Espinosa 
+          Mario Roque
+         
 """
 
 import numpy as np 
 import pandas as pd
 import os
 import xml.etree.ElementTree as et
-import re
-import glob
 import cv2
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
-
-def get_labels():
-    dic = {"image": [],"Dimensions": []}
-    simple_dic = {"label": []}
-    for i in range(1,116):
-    	dic[f'Object {i}']=[]
-    print("Generating data in CSV format....")
+def plot(idx):
+    classes = ["without_mask","with_mask"] #defining classes
+    plt.title(classes[labels[idx]])
+    plt.imshow(data[idx])
+    
+    
+def get_main_person_info():
+    dic = {"image": [],"Dimensions": [], "main_person": []}
     
     for file in os.listdir("../dataset/annotations"):
         row = []
-        xml = et.parse("../dataset/annotations/"+file) 
-        root = xml.getroot()
-        img = root[1].text
+        xmlfile = et.parse("../dataset/annotations/"+file)  ##Parsing the xml file with the annotations on each image
+        root = xmlfile.getroot()
+        img = root[1].text  ##Obtaining image name
         row.append(img)
-        h,w = root[2][0].text,root[2][1].text
-        row.append([h,w])
+        height,width = root[2][0].text,root[2][1].text ##Obtaining image size
+        row.append([height,width]) 
     
-        for i in range(4,len(root)):
-            temp = []
-            temp.append(root[i][0].text)
-            for point in root[i][5]:
-                temp.append(point.text)
-            row.append(temp)
-        for i in range(len(row),119):
-            row.append(0)
-        #print(root[4][0].text)
-        if(not "mask_weared_incorrect" in root[4][0].text):
-            #simple_dic["label"].append(root[4][0].text)
+        #Obtaining main_person_information about object 1    
+        temp = []
+        temp.append(root[4][0].text) #Obtaining label of object 1 column
+        for point in root[4][5]:
+            temp.append(point.text) #Obtaining the coordinates of the face on Obj1
+        row.append(temp)
+
+        #Cleanning the third clase to work with a binary problem
+        if(not "mask_weared_incorrect" in root[4][0].text): ##Not appending the third class
             for i,each in enumerate(dic):
                 dic[each].append(row[i])
     df = pd.DataFrame(dic)
-    return df, simple_dic
+    return df  ##Return the data for the pictures on class No mask and Mask.
 
 
-def get_images(df, simple_dic):
+def get_images(df):
     image_directories = []
-    for i in df["image"] :
+    for i in df["image"] : ##Obtaining the path for images on the cleaned dataframe.
         image_directories.append("../dataset/images/" + i)
         
-    classes = ["without_mask","with_mask"]
+    classes = ["without_mask","with_mask"] #defining classes
     labels = []
     data = []
     
-    print("Extracting each data into respective label folders....")
+    print("Extracting each data into respective label folders....") 
     for idx,image in enumerate(image_directories):
-        print(image)
-        if(df["Object 1"][idx][0]=="mask_weared_incorrect"):
-                print("hello1")
-                break
             
         img  = cv2.imread(image)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) ##Reads image and transforms from BGR to RGB
+    
+        X,Y = df["Dimensions"][idx] #Obtains the the image to the desired size
+        cv2.resize(img,(int(X),int(Y))) #Resizes the image to X,Y
+        
+        main_person_info = df["main_person"][idx]   #Obtains the face coordinates for object 1 and extracts it
+        
+        main_person_info[0] = main_person_info[0].replace(str(main_person_info[0]), str(classes.index(main_person_info[0])))
+        
+        main_person_info=[int(each) for each in main_person_info] #Parses all the string contents on main_person_info from Object 1 to integer values
+        label = main_person_info[0]
+        
+        face = img[main_person_info[2]:main_person_info[4],main_person_info[1]:main_person_info[3]] ##Crops the face on the coordinates given by the Object 1
+        
+        if((main_person_info[3]-main_person_info[1])>40 and (main_person_info[4]-main_person_info[2])>40): #Makes sure that the object has a recognizable size
+            try:
+                face = cv2.resize(face, (224, 224)) ##Resizes the image
+                face = np.asarray(face)  #Makes sure the image is in a numpy array
+                data.append(face)   #Appends the face
+                labels.append(label) #Appends the labels
 
-        if(idx % 100==0):
-            plt.pyplot.imshow(img)
-            
-            plt.pyplot.show()
-        #scale to dimension
-        X,Y = df["Dimensions"][idx]
-        cv2.resize(img,(int(X),int(Y)))
-        
-        
-        
-        #find the face in each object
-        info = df["Object 1"][idx]
-        if info!=0:
-            label = info[0]
-            if(label=="mask_weared_incorrect"):
-                print("hello2")
-                break
-            info[0] = info[0].replace(str(label), str(classes.index(label)))
-            info=[int(each) for each in info]
-            face = img[info[2]:info[4],info[1]:info[3]]
-            if((info[3]-info[1])>40 and (info[4]-info[2])>40):
-                try:
-                    face = cv2.resize(face, (224, 224))
-                    face = np.asarray(face)
-                   # face = preprocess_input(face)
-                    data.append(face)
-                    labels.append(label)
-
-                except:
-                    print("excepcion")
-                    pass
+            except:
+                print("There was an unhandled exeption")
+                pass
     return data, labels
 
-df, simple_dic = get_labels()
-data, labels =get_images(df, simple_dic)
-
+df = get_main_person_info()
+data, labels =get_images(df)
 
 
