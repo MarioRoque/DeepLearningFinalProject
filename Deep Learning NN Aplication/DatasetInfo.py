@@ -78,7 +78,7 @@ def get_images(df):
         
         if((main_person_info[3]-main_person_info[1])>40 and (main_person_info[4]-main_person_info[2])>40): #Makes sure that the object has a recognizable size
             try:
-                face = cv2.resize(face, (224, 224)) ##Resizes the image
+                face = cv2.resize(face, (64,64)) ##Resizes the image
                 face = np.asarray(face)  #Makes sure the image is in a numpy array
                 data.append(face)   #Appends the face
                 labels.append(label) #Appends the labels
